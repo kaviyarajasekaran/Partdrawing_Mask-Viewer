@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part Drawing Segmentation Tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #0b3d5c, #87a1b3);
+      color: #002b45;
+    }
+
+    /* === HEADER (centered logo and title like Mask Viewer) === */
+    .header {
+      text-align: center;
+      padding: 2rem 0 1rem;
+      background: #00385d;
+      color: white;
+    }
+
+    .header img {
+      height: 80px;
+      display: block;
+      margin: 0 auto 10px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    /* === MAIN CONTAINER === */
+    .container-box {
+      max-width: 850px;
+      margin: 50px auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 14px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    #canvasContainer {
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    canvas {
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background: #fff;
+      max-width: 100%;
+    }
+
+    .btn-main {
+      background-color: #0d4b7c;
+      color: white;
+      font-weight: 600;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .btn-main:hover {
+      background-color: #0b3d67;
+    }
+
+    /* === RIGHT SIDE BUTTONS === */
+    .right-controls {
+      position: fixed;
+      right: 40px;
+      top: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* === NAVIGATION BUTTONS === */
+    .nav-buttons {
+      margin-top: 15px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+/* === TOOLBOX BUTTONS (RIGHT SIDE) === */
+#tool-buttons {
+  position: fixed;
+  right: 40px;
+  top: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  z-index: 999;
+  pointer-events: none;
+}
+
+#tool-buttons.visible {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: all;
+}
+
+/* When hidden */
+.hidden {
+  opacity: 0;
+  transform: translateX(40px);
+  pointer-events: none;
+}
+
+/* Button Style */
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 70px;
+  height: 70px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: none;
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.1),
+              -4px -4px 10px rgba(255,255,255,0.6);
+  cursor: pointer;
+  font-weight: 600;
+  color: #0d4b7c;
+  transition: all 0.2s ease;
+}
+
+.tool-btn.active {
+  background: linear-gradient(145deg, #0b3d5c, #136ba3);
+  color: white;
+  box-shadow: inset 4px 4px 8px rgba(0,0,0,0.2),
+              inset -4px -4px 8px rgba(255,255,255,0.1);
+}
+
+.tool-btn:hover {
+  transform: translateY(-2px);
+}
+
+.tool-btn span {
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tool-btn.active {
+  background: linear-gradient(145deg, #0b3d5c, #136ba3);
+  color: white;
+  box-shadow: inset 4px 4px 8px rgba(0,0,0,0.2),
+              inset -4px -4px 8px rgba(255,255,255,0.1);
+}
+
+.tool-btn:hover {
+  transform: translateY(-2px);
+}
+
+.tool-btn span {
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+footer {
+      text-align: center;
+      font-size: 14px;
+      color: #eee;
+      margin-top: 80px;
+      padding: 30px;
+      background: #0a3d62;
+      border-top: 8px solid #084066;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- === HEADER (Centered) === -->
+  <div class="header">
+    <img src="{{ url_for('static', filename='images/com logo.jpg') }}" alt="Logo">
+    <h1>Part Drawing Segmentation Tool</h1>
+  </div>
+
+  <!-- === MAIN UPLOAD + CANVAS BOX === -->
+  <div class="container-box">
+    <h2>Erase Unwanted Areas</h2>
+    <p>Upload an image or ZIP file to clean.</p>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" name="image_zip" accept=".zip,.jpg,.jpeg,.png"
+             class="form-control" required
+             style="width:300px; display:inline-block;">
+      <button type="submit" class="btn-main mt-3">Upload & Edit</button>
+    </form>
+
+    <p id="errorMsg" class="text-danger mt-3"></p>
+
+    <div id="canvasContainer" style="display:none;">
+      <canvas id="editCanvas" width="700" height="500"></canvas>
+
+      <div class="nav-buttons">
+        <button id="prevBtn" class="btn-main">⬅ Previous</button>
+        <button id="nextBtn" class="btn-main">Next ➡</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- === RIGHT-SIDE CONTROLS === -->
+  <div id="tool-buttons" class="hidden">
+  <button id="undoBtn" class="tool-btn">↩ Undo</button>
+  <button id="saveBtn" class="tool-btn">💾 Save</button>
+  <button id="saveAsBtn" class="tool-btn">📁 Save As</button>
+  <button id="eraserBtn" class="tool-btn">✏ Eraser</button>
+  <button id="selectBtn" class="tool-btn">⬚ Select</button>
+</div>
+<footer>
+    © 2025 ALFA TKG — Internal Use Only
+</footer>
+
+  <script>
+const uploadForm = document.getElementById("uploadForm");
+const canvas = document.getElementById("editCanvas");
+const ctx = canvas.getContext("2d");
+const errorMsg = document.getElementById("errorMsg");
+const container = document.getElementById("canvasContainer");
+const offscreen = document.createElement("canvas");
+const offCtx = offscreen.getContext("2d");
+
+let currentImage = null;
+let currentIndex = 0;
+let imageList = [];
+let currentFileName = "";
+let undoStack = [];
+
+// === TOOL STATE ===
+let currentTool = null;
+let drawing = false;
+let isSelecting = false;
+let selection = null;
+let startX, startY;
+
+// === ADD TOOLBAR BUTTONS SAFELY ===
+window.addEventListener("DOMContentLoaded", () => {
+  const rightControls = document.querySelector(".right-controls");
+  if (rightControls) {
+    rightControls.innerHTML = `
+      <button id="selectBtn" class="btn-main tool-btn">🔲 Select</button>
+      <button id="eraserBtn" class="btn-main tool-btn">🩹 Eraser</button>
+      <button id="undoBtn" class="btn-main">↩ Undo</button>
+      <button id="saveBtn" class="btn-main">💾 Save</button>
+      <button id="saveAsBtn" class="btn-main">📁 Save As</button>
+    `;
+  }
+
+  // Connect buttons only after they exist
+  connectButtons();
+});
+
+function connectButtons() {
+  const eraserBtn = document.getElementById("eraserBtn");
+  const selectBtn = document.getElementById("selectBtn");
+  const undoBtn = document.getElementById("undoBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const saveAsBtn = document.getElementById("saveAsBtn");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+
+  // === TOOL BUTTON LOGIC ===
+  function setActiveTool(btn) {
+    document.querySelectorAll(".tool-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+  }
+
+  eraserBtn.onclick = () => {
+    currentTool = currentTool === "eraser" ? null : "eraser";
+    setActiveTool(currentTool === "eraser" ? eraserBtn : null);
+  };
+
+  selectBtn.onclick = () => {
+    currentTool = currentTool === "select" ? null : "select";
+    setActiveTool(currentTool === "select" ? selectBtn : null);
+  };
+
+  undoBtn.onclick = () => {
+    if (undoStack.length > 1) {
+      undoStack.pop();
+      const prev = new Image();
+      prev.src = undoStack[undoStack.length - 1];
+      prev.onload = () => ctx.drawImage(prev, 0, 0);
+    }
+  };
+
+  saveBtn.onclick = async () => {
+    const imageData = canvas.toDataURL("image/png");
+    localStorage.setItem(currentFileName, imageData);
+    const formData = new FormData();
+    formData.append("image_data", imageData);
+    formData.append("filename", currentFileName);
+    await fetch("/save_cleaned_image", { method: "POST", body: formData });
+    alert("✅ Changes saved!");
+  };
+
+  saveAsBtn.onclick = async () => {
+    const res = await fetch("/download_all_cleaned");
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    const defaultFileName = prompt("Enter ZIP name:", "cleaned_images");
+    if (!defaultFileName) return;
+    a.href = URL.createObjectURL(blob);
+    a.download = `${defaultFileName}.zip`;
+    a.click();
+  };
+
+  prevBtn.onclick = () => {
+    if (imageList.length === 0) return;
+    saveStateBeforeSwitch();
+    currentIndex = (currentIndex - 1 + imageList.length) % imageList.length;
+    loadImage(imageList[currentIndex]);
+  };
+
+  nextBtn.onclick = () => {
+    if (imageList.length === 0) return;
+    saveStateBeforeSwitch();
+    currentIndex = (currentIndex + 1) % imageList.length;
+    loadImage(imageList[currentIndex]);
+  };
+}
+
+// === UPLOAD HANDLER (still working) ===
+uploadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const tools = document.getElementById("tool-buttons");
+  tools.classList.remove("visible");
+  tools.classList.add("hidden");
+  
+  const formData = new FormData(uploadForm);
+  const res = await fetch("/upload_clean", { method: "POST", body: formData });
+  const data = await res.json();
+  
+  if (data.error) {
+    errorMsg.textContent = data.error;
+    return;
+  }
+  
+  imageList = data.images;
+  currentIndex = 0;
+  loadImage(imageList[currentIndex]);
+  showToolsAndScroll();
+  container.style.display = "block";
+});
+
+function showToolsAndScroll() {
+  const tools = document.getElementById("tool-buttons");
+  tools.classList.remove("hidden");
+  setTimeout(() => tools.classList.add("visible"), 100);
+  window.scrollTo({
+    top: document.body.scrollHeight,
+    behavior: "smooth"
+  });
+}
+
+// === CANVAS EVENTS ===
+canvas.addEventListener("mousedown", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  startX = e.clientX - rect.left;
+  startY = e.clientY - rect.top;
+
+  if (currentTool === "eraser") {
+    drawing = true;
+    saveState();
+    ctx.beginPath();
+  } else if (currentTool === "select") {
+    isSelecting = true;
+    selection = null;
+  }
+});
+
+canvas.addEventListener("mousemove", (e) => {
+  if (currentTool === "eraser" && drawing) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.lineWidth = 30;
+    ctx.lineCap = "round";
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  } else if (currentTool === "select" && isSelecting) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    redrawCanvas();
+    ctx.setLineDash([6]);
+    ctx.strokeStyle = "#0d4b7c";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, x - startX, y - startY);
+    ctx.setLineDash([]);
+
+    selection = {
+      x: Math.min(x, startX),
+      y: Math.min(y, startY),
+      w: Math.abs(x - startX),
+      h: Math.abs(y - startY)
+    };
+  }
+});
+
+canvas.addEventListener("mouseup", () => {
+  if (currentTool === "eraser") {
+    drawing = false;
+    ctx.globalCompositeOperation = "source-over";
+  } else if (currentTool === "select") {
+    isSelecting = false;
+    if (selection) drawSelection();
+  }
+});
+
+// === DELETE SELECTED AREA ===
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Delete" && selection && currentTool === "select") {
+    saveState();
+    offCtx.clearRect(selection.x, selection.y, selection.w, selection.h); // erase on offscreen
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(offscreen, 0, 0); // refresh visible canvas
+    selection = null;
+  }
+});
+
+
+// === SUPPORT FUNCTIONS ===
+function saveState() {
+  undoStack.push(canvas.toDataURL());
+  if (undoStack.length > 20) undoStack.shift();
+}
+
+function redrawCanvas() {
+  // Always redraw from the current visible state instead of the last undo snapshot
+  const currentData = canvas.toDataURL();
+  const img = new Image();
+  img.src = currentData;
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+}
+
+function drawSelection() {
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = "#007bff";
+  ctx.clearRect(0, 0, canvas.width, canvas.height); // clear old dashed box
+  ctx.drawImage(currentImage, 0, 0);
+  if (selection) {
+    ctx.strokeRect(selection.x, selection.y, selection.w, selection.h);
+  }
+  ctx.setLineDash([]);
+}
+
+function loadImage(src) {
+  currentFileName = src.split("/").pop();
+  const savedData = localStorage.getItem(currentFileName);
+
+  currentImage = new Image();
+  currentImage.crossOrigin = "anonymous";
+  currentImage.onload = () => {
+    canvas.width = currentImage.width;
+    canvas.height = currentImage.height;
+    offscreen.width = currentImage.width;
+    offscreen.height = currentImage.height;
+
+    if (savedData) {
+      const img = new Image();
+      img.src = savedData;
+      img.onload = () => {
+        offCtx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0);
+      };
+    } else {
+      offCtx.drawImage(currentImage, 0, 0);
+      ctx.drawImage(currentImage, 0, 0);
+    }
+
+    undoStack = [canvas.toDataURL()];
+  };
+  currentImage.src = src;
+}
+
+function saveStateBeforeSwitch() {
+  if (canvas && currentFileName) {
+    const imageData = canvas.toDataURL("image/png");
+    localStorage.setItem(currentFileName, imageData);
+  }
+}
+</script>
+
+</body>
+</html>

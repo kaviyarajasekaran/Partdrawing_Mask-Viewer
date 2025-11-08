@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>ALFA TKG — Interactive Mask Viewer</title>
+  <title>alfa TKG — Tools Dashboard</title>
   <style>
-    /* ===== GLOBAL STYLES ===== */
     body {
       font-family: "Segoe UI", Roboto, sans-serif;
       background: linear-gradient(180deg, #0a3d62 0%, #102f45 30%, #f5f7fb 100%);
-      color: #333;
       margin: 0;
       padding: 0;
+      color: #333;
       text-align: center;
     }
 
@@ -23,150 +22,58 @@
 
     header img {
       height: 100px;
-      margin-bottom: 10px;
       border-radius: 10px;
+      margin-bottom: 10px;
     }
 
     header h1 {
       font-size: 30px;
-      font-weight: 700;
-      letter-spacing: 1px;
       margin: 5px 0;
+      font-weight: 700;
     }
-    /* ===== NAVIGATION BUTTONS (Prev / Next) ===== */
-#prevBtn, #nextBtn {
-  display: inline-block;
-  background: linear-gradient(135deg, #0a3d62, #1e5a8b);
-  color: #fff;
-  border: none;
-  padding: 14px 35px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: 0.5px;
-  margin: 25px 10px 0 10px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-}
 
-#prevBtn:hover, #nextBtn:hover {
-  background: linear-gradient(135deg, #0e4c7f, #0a3d62);
-  transform: scale(1.05);
-}
-
-#prevBtn::before {
-  content: "← ";
-  font-weight: bold;
-}
-
-#nextBtn::after {
-  content: " →";
-  font-weight: bold;
-}
-
-    /* ===== CONTAINERS ===== */
     .container {
-      max-width: 1100px;
-      margin: 40px auto;
-      padding: 30px;
+      max-width: 900px;
+      margin: 60px auto;
       background: #ffffffee;
+      padding: 50px 30px;
       border-radius: 20px;
       box-shadow: 0 4px 25px rgba(0,0,0,0.15);
-      text-align: center;
     }
 
     h2 {
-      font-size: 26px;
       color: #0a3d62;
-      margin-bottom: 10px;
+      margin-bottom: 25px;
+      font-size: 24px;
     }
 
-    p {
-      font-size: 16px;
-      margin: 10px 0 25px;
-    }
-
-    label {
-      font-weight: 600;
-      display: block;
-      margin-top: 20px;
-      color: #0a3d62;
-    }
-
-    /* ===== INPUTS ===== */
-    input[type=file] {
-      margin: 12px auto 25px;
-      font-size: 15px;
-      background: #eef2f7;
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-
-    /* ===== BUTTON ===== */
-    .btn {
-      background: linear-gradient(135deg, #0a3d62, #1e5a8b);
-      color: #fff;
-      border: none;
-      padding: 14px 35px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 16px;
-      letter-spacing: 0.5px;
-      transition: transform 0.2s, background 0.3s;
-    }
-
-    .btn:hover {
-      background: linear-gradient(135deg, #0e4c7f, #0a3d62);
-      transform: scale(1.04);
-    }
-
-    .btn:disabled {
-      background: #999;
-      cursor: not-allowed;
-    }
-
-    #error {
-      color: #d00;
-      margin-top: 15px;
-      font-weight: 600;
-    }
-
-    /* ===== VIEWER ===== */
-    #viewer {
-      display: none;
-      margin-top: 30px;
-    }
-
-    .viewer {
+    .button-grid {
       display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 30px;
       flex-wrap: wrap;
-      margin-top: 25px;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 40px;
     }
 
-    canvas {
+    .tool-btn {
       display: block;
-      border-radius: 12px;
-      box-shadow: 0 3px 15px rgba(0,0,0,0.15);
-      max-width: 100%;
-      height: auto;
+      width: 260px;
+      background: linear-gradient(135deg, #0a3d62, #1e5a8b);
+      color: white;
+      border: none;
+      padding: 20px;
+      border-radius: 16px;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+      transition: transform 0.3s, background 0.3s;
     }
 
-    #overlayCanvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-    }
-
-    .canvas-wrapper {
-      position: relative;
-      display: inline-block;
+    .tool-btn:hover {
+      background: linear-gradient(135deg, #0e4c7f, #0a3d62);
+      transform: scale(1.05);
     }
 
     footer {
@@ -178,284 +85,28 @@
       background: #0a3d62;
       border-top: 2px solid #084066;
     }
-
-    /* ===== UPLOAD ROW ===== */
-    .upload-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 25px;
-      flex-wrap: wrap;
-      margin-top: 15px;
-    }
-
-    .upload-group {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .upload-group label {
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: #0a3d62;
-    }
-
-    .upload-group input[type=file] {
-      background: #eef2f7;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      width: 260px;
-      height: 44px;
-      font-size: 14px;
-    }
-
-    .upload-row .btn {
-      align-self: center;
-      height: 44px;
-      margin-top: 22px;
-      padding: 0 30px;
-    }
-
-    #nextBtn {
-      margin-top: 25px;
-      display: none;
-    }
   </style>
 </head>
 <body>
   <header>
-    <img src="static\images\com logo.jpg" alt="ALFA TKG Logo">
-    <h1>Partdrawing Mask Viewer</h1>
+    <img src="static/images/com logo.jpg" alt="ALFA TKG Logo">
+    <h1>alfa TKG Tools</h1>
   </header>
 
   <div class="container">
-    <h2>Upload ZIP Files</h2>
-    <p>Upload one ZIP of noisy images and one ZIP of corresponding mask (.npy) files.</p>
-
-    <form id="uploadForm" method="POST" enctype="multipart/form-data">
-      <div class="upload-row">
-        <div class="upload-group">
-          <label for="noisy_zip">Noisy Images ZIP</label>
-          <input type="file" id="noisy_zip" name="noisy_zip" accept=".zip" required>
-        </div>
-        <div class="upload-group">
-          <label for="mask_zip">Mask Files ZIP</label>
-          <input type="file" id="mask_zip" name="mask_zip" accept=".zip" required>
-        </div>
-        <button type="submit" class="btn" id="uploadBtn">Upload & Preview</button>
-      </div>
-    </form>
-    <p id="error"></p>
-  </div>
-
-  <div id="viewer">
-    <h2>Image Preview</h2>
-    <div class="viewer">
-      <div class="canvas-wrapper">
-        <canvas id="baseCanvas"></canvas>
-        <canvas id="overlayCanvas"></canvas>
-      </div>
+    <h2>Select a Tool</h2>
+    <div class="button-grid">
+      <button class="tool-btn" onclick="window.location.href='/viewer'">
+        🧩 Partdrawing Mask Viewer
+      </button>
+      <button class="tool-btn" onclick="window.location.href='/clean'">
+        🧹 Erase Unwanted Areas
+      </button>
     </div>
-    <p>Active Mask: <span id="maskLabel">None</span></p>
-    <button id="prevBtn" style="display:none;">Previous Image</button>
-    <button id="nextBtn" style="display:none;">Next Image</button>
   </div>
 
-  <script>
-  const form = document.getElementById('uploadForm');
-  const errorBox = document.getElementById('error');
-  const viewer = document.getElementById('viewer');
-  const baseCanvas = document.getElementById('baseCanvas');
-  const overlayCanvas = document.getElementById('overlayCanvas');
-  const maskLabel = document.getElementById('maskLabel');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const prevBtn = document.getElementById('prevBtn');
-
-  let imagesData = [];
-  let currentIndex = 0;
-  let labelData = null, W, H, overlayCtx;
-
-  // Show errors safely
-  function showError(msg) {
-    errorBox.textContent = msg;
-    console.error("❌ Error:", msg);
-  }
-  function clearError() {
-    errorBox.textContent = '';
-  }
-
-  // === Handle Form Submit ===
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    clearError();
-
-    const noisyZip = document.getElementById('noisy_zip').files[0];
-    const maskZip = document.getElementById('mask_zip').files[0];
-
-    if (!noisyZip || !maskZip) {
-      showError("Please upload both ZIP files.");
-      return;
-    }
-
-    const fd = new FormData();
-    fd.append("noisy_zip", noisyZip);
-    fd.append("mask_zip", maskZip);
-
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = "Processing...";
-
-    try {
-      const res = await fetch("/upload", { method: "POST", body: fd });
-      const text = await res.text(); // 👈 read raw text first
-
-      // Safely try to parse JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error("Server returned invalid JSON:\n" + text.slice(0, 150));
-      }
-
-      // Check for backend error
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Upload failed on server.");
-      }
-
-      // Handle image/mask pairs
-      imagesData = Array.isArray(data) ? data : data.pairs || [];
-      if (imagesData.length === 0) {
-        throw new Error("No valid image/mask pairs found.");
-      }
-
-      currentIndex = 0;
-      await showImage(currentIndex);
-      const multiple = imagesData.length > 1;
-      nextBtn.style.display = multiple ? "inline-block" : "none";
-      prevBtn.style.display = multiple ? "inline-block" : "none";
-      viewer.scrollIntoView({ behavior: 'smooth' });
-
-      
-
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = "Upload & Preview";
-    }
-  };
-
-  // === Next Button ===
-nextBtn.onclick = async () => {
-  if (imagesData.length === 0) return;
-  currentIndex = (currentIndex + 1) % imagesData.length;
-  await showImage(currentIndex);
-};
-
-  // === Previous Button ===
-prevBtn.onclick = async () => {
-  if (imagesData.length === 0) return;
-  currentIndex = (currentIndex - 1 + imagesData.length) % imagesData.length;
-  await showImage(currentIndex);
-};
-
-  // === Show Image + Mask ===
-  async function showImage(index) {
-    const data = imagesData[index];
-    if (!data.noisy_url || !data.label_url) {
-      showError("Missing image or mask URL for index " + index);
-      return;
-    }
-
-    W = data.width || 512;
-    H = data.height || 512;
-    viewer.style.display = 'block';
-
-    await drawImage(baseCanvas, data.noisy_url, W, H);
-    await parseLabelImage(data.label_url);
-  }
-
-  function drawImage(canvas, url, W, H) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = W;
-        canvas.height = H;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, W, H);
-        overlayCanvas.width = W;
-        overlayCanvas.height = H;
-        overlayCtx = overlayCanvas.getContext('2d');
-        resolve();
-      };
-      img.onerror = () => reject(new Error("Failed to load image: " + url));
-      img.src = url + "?v=" + Date.now();
-    });
-  }
-
-  function parseLabelImage(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const tmp = document.createElement('canvas');
-        tmp.width = W;
-        tmp.height = H;
-        const ctx = tmp.getContext('2d');
-        ctx.drawImage(img, 0, 0, W, H);
-        const pixels = ctx.getImageData(0, 0, W, H).data;
-        labelData = new Uint16Array(W * H);
-        for (let i = 0, j = 0; j < labelData.length; j++, i += 4)
-          labelData[j] = pixels[i];
-        setupHover();
-        resolve();
-      };
-      img.onerror = () => reject(new Error("Failed to load mask: " + url));
-      img.src = url + "?v=" + Date.now();
-    });
-  }
-
-  // === Hover Highlight ===
-  function setupHover() {
-    let current = -1;
-    baseCanvas.onmousemove = (e) => {
-      const rect = baseCanvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) * (W / rect.width));
-      const y = Math.floor((e.clientY - rect.top) * (H / rect.height));
-      const label = labelData[y * W + x];
-      if (label !== current) {
-        current = label;
-        overlayCtx.clearRect(0, 0, W, H);
-        maskLabel.textContent = label || 'None';
-        if (label > 0) highlightMask(label);
-      }
-    };
-    baseCanvas.onmouseleave = () => {
-      overlayCtx.clearRect(0, 0, W, H);
-      maskLabel.textContent = 'None';
-    };
-  }
-
-  function highlightMask(id) {
-    const imgData = overlayCtx.createImageData(W, H);
-    const [r, g, b] = colorForID(id);
-    for (let i = 0; i < labelData.length; i++) {
-      if (labelData[i] === id) {
-        const k = i * 4;
-        imgData.data[k] = r;
-        imgData.data[k + 1] = g;
-        imgData.data[k + 2] = b;
-        imgData.data[k + 3] = 130;
-      }
-    }
-    overlayCtx.putImageData(imgData, 0, 0);
-  }
-
-  function colorForID(id) {
-    return [(id * 91) % 255, (id * 53) % 255, (id * 31) % 255];
-  }
-</script>
-
+  <footer>
+    © 2025 ALFA TKG — Internal Use Only
+  </footer>
 </body>
 </html>
