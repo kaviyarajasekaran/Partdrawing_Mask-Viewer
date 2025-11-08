@@ -34,6 +34,18 @@ Mask website/
    - A mask image to overlay.  
 3. Use **← Previous Image** and **Next Image →** to switch between loaded samples.
 
+# Upload Section
+Users can upload ZIP files containing noisy images and masks.
+<p align="center">
+<img src="Noisy img.png" alt="User Interface">
+</p>
+
+# Image + Mask Viewer
+View part drawings with corresponding colored mask overlays.
+<p align="center">
+<img src="Mask img.png" alt="Mask viewer">
+</p>
+ 
 # Customization
 - Replace the logo or background gradient in the CSS to match your style.  
 - Adjust button colors and layout directly in the `<style>` section.  
