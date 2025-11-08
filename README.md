@@ -39,9 +39,6 @@ Mask website/
 - Adjust button colors and layout directly in the `<style>` section.  
 - Modify JavaScript to load from local folders or remote sources.
 
-## 💡 Example Interface
-![UI Preview](assets/ui-preview.png)
-
 ## 🧑‍💻 Author
 **Kaviya Rajasekaran**  
 [GitHub Profile](https://github.com/kaviyarajasekaran)
