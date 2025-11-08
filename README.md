@@ -1,4 +1,3 @@
-# Partdrawing_Mask_Viewer
 # Partdrawing Mask Viewer
 A simple and elegant web application to visualize **mask overlays** on part drawing images.  
 This tool allows users to upload multiple images, view them interactively, and switch between them easily using navigation buttons.
