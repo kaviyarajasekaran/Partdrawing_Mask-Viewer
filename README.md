@@ -36,7 +36,7 @@ Mask website/
 # Homepage
 Two tool are available
 <p align="center">
-<img src="index.png.png" alt="User Interface">
+<img src="index.png" alt="User Interface">
 </p>
 
 # Upload Section
