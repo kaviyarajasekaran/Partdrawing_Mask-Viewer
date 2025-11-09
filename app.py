@@ -187,20 +187,42 @@ def upload_clean():
 @app.route('/save_cleaned_image', methods=['POST'])
 def save_cleaned_image():
     try:
-        image_data = request.form['image_data']
-        filename = request.form['filename']
+        image_data = request.form.get('image_data')
+        filename = request.form.get('filename')
+        replace_path = request.form.get('replace_path')  # optional (e.g. "uploads/session_xxx/images/foo.png")
 
-        image_data = image_data.split(',')[1]
+        if not image_data or not filename:
+            return jsonify({"error": "Missing image_data or filename"}), 400
+
+        # image_data is expected as data URL like "data:image/png;base64,...."
+        if ',' in image_data:
+            image_data = image_data.split(',', 1)[1]
         img_bytes = base64.b64decode(image_data)
 
+        if replace_path:
+            rp = replace_path.replace('\\', '/')
+            if not (rp.startswith('uploads/') or rp.startswith('cleaned/')):
+                return jsonify({"error": "replace_path must be under uploads/ or cleaned/"}), 400
+            target_path = os.path.join(BASE_DIR, 'static', rp)
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(target_path, 'wb') as f:
+                f.write(img_bytes)
+
+            saved_rel = rp  # path relative to static
+            saved_url = url_for('static', filename=saved_rel)
+            return jsonify({"success": True, "filename": os.path.basename(target_path), "saved_path": saved_rel, "saved_url": saved_url})
+
+        # fallback: save to CLEANED_DIR
         file_path = os.path.join(CLEANED_DIR, filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'wb') as f:
             f.write(img_bytes)
 
-        return jsonify({"success": True})
+        saved_rel = os.path.relpath(file_path, BASE_DIR).replace('\\', '/')
+        saved_url = url_for('static', filename=os.path.relpath(file_path, os.path.join(BASE_DIR, 'static')).replace('\\','/'))
+        return jsonify({"success": True, "filename": filename, "saved_path": saved_rel, "saved_url": saved_url})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # === DOWNLOAD ALL CLEANED IMAGES AS ZIP ===
 @app.route('/download_all_cleaned')
@@ -216,6 +238,30 @@ def download_all_cleaned():
 
     return send_file(zip_path, as_attachment=True)
 
+# === SAVE AS ZIP (for mask viewer) ===
+@app.route("/saveas_cleaned_zip", methods=["POST"])
+def saveas_cleaned_zip():
+    try:
+        data = request.get_json()
+        zip_name = data.get("zip_name", "cleaned_images").strip()
+        if not zip_name.lower().endswith(".zip"):
+            zip_name += ".zip"
+
+        zip_path = os.path.join(CLEANED_DIR, zip_name)
+        os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(CLEANED_DIR):
+                for f in files:
+                    if f.lower().endswith((".png", ".jpg", ".jpeg")):
+                        abs_path = os.path.join(root, f)
+                        arcname = os.path.relpath(abs_path, CLEANED_DIR)
+                        zipf.write(abs_path, arcname)
+
+        return jsonify({"success": True, "download_url": url_for("static", filename=f"cleaned/{zip_name}")})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

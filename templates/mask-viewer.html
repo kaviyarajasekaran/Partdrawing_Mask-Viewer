@@ -222,6 +222,59 @@
       margin-top: 25px;
       display: none;
     }
+    /* ===== FLOATING TOOL BUTTONS (Right Side) ===== */
+/* floating Tools: vertical pills with icon on top, label below */
+.floating-tools {
+  position: fixed;
+  top: 45%;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 1000;
+  transform: translateY(-50%);
+}
+
+.tool-btn {
+  width: 64px;
+  height: 64px;
+  background: #fff;
+  color: #0a3d62;
+  border: 2px solid rgba(10,61,98,0.06);
+  padding: 6px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  transition: all 0.18s ease;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  text-align:center;
+}
+
+.tool-btn div { line-height:1; }
+
+.tool-btn:hover {
+  background: #0a3d62;
+  color: #fff;
+  transform: translateX(-4px);
+}
+
+/* hide the tools until the viewer is scrolled into view (optional: small fade-in) */
+#editTools[style*="display:none"] { opacity: 0; pointer-events: none; }
+#editTools[style*="display:flex"] { opacity: 1; transition: opacity 220ms ease-in; pointer-events: auto; }
+
+
+.tool-btn:hover {
+  background: #0a3d62;
+  color: #fff;
+  transform: scale(1.05);
+}
+
   </style>
 </head>
 <body>
@@ -262,6 +315,32 @@
     <button id="prevBtn" style="display:none;">Previous Image</button>
     <button id="nextBtn" style="display:none;">Next Image</button>
   </div>
+  <div id="editTools" class="floating-tools" style="display:none;">
+  <button id="undo-btn" class="tool-btn" title="Undo Last Action">
+    <div style="font-size:18px;line-height:1">↩</div>
+    <div style="font-size:13px;margin-top:6px">Undo</div>
+  </button>
+
+  <button id="save-btn" class="tool-btn" title="Save">
+    <div style="font-size:18px;line-height:1">💾</div>
+    <div style="font-size:13px;margin-top:6px">Save</div>
+  </button>
+
+  <button id="saveas-btn" class="tool-btn" title="Save As">
+    <div style="font-size:18px;line-height:1">📁</div>
+    <div style="font-size:13px;margin-top:6px">Save As</div>
+  </button>
+
+  <button id="remove-btn" class="tool-btn" title="Remove Mask">
+    <div style="font-size:18px;line-height:1">🩸</div>
+    <div style="font-size:13px;margin-top:6px">Remove</div>
+  </button>
+
+  <button id="redo-btn" class="tool-btn" title="Redo Action">
+    <div style="font-size:18px;line-height:1">↪</div>
+    <div style="font-size:13px;margin-top:6px">Redo</div>
+  </button>
+</div>
 
   <script>
   const form = document.getElementById('uploadForm');
@@ -273,6 +352,13 @@
   const uploadBtn = document.getElementById('uploadBtn');
   const nextBtn = document.getElementById('nextBtn');
   const prevBtn = document.getElementById('prevBtn');
+  const removeBtn = document.getElementById('remove-btn');
+  const undoBtn = document.getElementById('undo-btn');
+  const redoBtn = document.getElementById('redo-btn');
+
+  let selectedLabel = -1;
+  let undoStack = [];
+  let redoStack = [];
 
   let imagesData = [];
   let currentIndex = 0;
@@ -336,8 +422,7 @@
       nextBtn.style.display = multiple ? "inline-block" : "none";
       prevBtn.style.display = multiple ? "inline-block" : "none";
       viewer.scrollIntoView({ behavior: 'smooth' });
-
-      
+      document.getElementById("editTools").style.display = "flex";      
 
     } catch (err) {
       showError(err.message);
@@ -415,46 +500,202 @@ prevBtn.onclick = async () => {
       img.src = url + "?v=" + Date.now();
     });
   }
+  // Create consistent distinct colors per label ID
+function getColorForLabel(label) {
+  const r = (label * 37) % 255;
+  const g = (label * 91) % 255;
+  const b = (label * 53) % 255;
+  return [r, g, b];
+}
 
-  // === Hover Highlight ===
-  function setupHover() {
-    let current = -1;
-    baseCanvas.onmousemove = (e) => {
-      const rect = baseCanvas.getBoundingClientRect();
-      const x = Math.floor((e.clientX - rect.left) * (W / rect.width));
-      const y = Math.floor((e.clientY - rect.top) * (H / rect.height));
-      const label = labelData[y * W + x];
-      if (label !== current) {
-        current = label;
-        overlayCtx.clearRect(0, 0, W, H);
-        maskLabel.textContent = label || 'None';
-        if (label > 0) highlightMask(label);
-      }
-    };
-    baseCanvas.onmouseleave = () => {
-      overlayCtx.clearRect(0, 0, W, H);
-      maskLabel.textContent = 'None';
-    };
-  }
-
-  function highlightMask(id) {
-    const imgData = overlayCtx.createImageData(W, H);
-    const [r, g, b] = colorForID(id);
-    for (let i = 0; i < labelData.length; i++) {
-      if (labelData[i] === id) {
-        const k = i * 4;
-        imgData.data[k] = r;
-        imgData.data[k + 1] = g;
-        imgData.data[k + 2] = b;
-        imgData.data[k + 3] = 130;
-      }
+  function highlightMask(label) {
+  const [r, g, b] = getColorForLabel(label);
+  const imgData = overlayCtx.createImageData(W, H);
+  for (let i = 0; i < labelData.length; i++) {
+    if (labelData[i] === label) {
+      const k = i * 4;
+      imgData.data[k] = r;
+      imgData.data[k + 1] = g;
+      imgData.data[k + 2] = b;
+      imgData.data[k + 3] = 80; // translucent overlay
     }
-    overlayCtx.putImageData(imgData, 0, 0);
+  }
+  overlayCtx.putImageData(imgData, 0, 0);
+}
+
+
+// Remember hovered mask ID
+function setupHover() {
+  let currentHover = -1;
+
+  baseCanvas.onmousemove = (e) => {
+    const rect = baseCanvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * (W / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (H / rect.height));
+    const label = labelData[y * W + x];
+    if (label !== currentHover) {
+      currentHover = label;
+      overlayCtx.clearRect(0, 0, W, H);
+      if (label > 0) highlightMask(label);
+    }
+  };
+
+  // 🟢 Click to SELECT mask permanently
+  baseCanvas.onclick = (e) => {
+    const rect = baseCanvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) * (W / rect.width));
+    const y = Math.floor((e.clientY - rect.top) * (H / rect.height));
+    const label = labelData[y * W + x];
+    if (label > 0) {
+      selectedLabel = label;
+      maskLabel.textContent = 'Selected Mask: ' + label;
+      overlayCtx.clearRect(0, 0, W, H);
+      highlightMask(label); // keep it colored after click
+    }
+  };
+
+  baseCanvas.onmouseleave = () => {
+    overlayCtx.clearRect(0, 0, W, H);
+  };
+}
+
+removeBtn.onclick = () => {
+  if (selectedLabel <= 0) {
+    alert("Please hover and select a mask area first.");
+    return;
   }
 
-  function colorForID(id) {
-    return [(id * 91) % 255, (id * 53) % 255, (id * 31) % 255];
+  // Save current state
+  const ctx = baseCanvas.getContext('2d');
+  undoStack.push(ctx.getImageData(0, 0, W, H));
+  redoStack = [];
+
+  // Paint selected region white
+  const imgData = ctx.getImageData(0, 0, W, H);
+  for (let i = 0; i < labelData.length; i++) {
+    if (labelData[i] === selectedLabel) {
+      const k = i * 4;
+      imgData.data[k] = 255;
+      imgData.data[k + 1] = 255;
+      imgData.data[k + 2] = 255;
+      imgData.data[k + 3] = 255;
+    }
   }
+  ctx.putImageData(imgData, 0, 0);
+  overlayCtx.clearRect(0, 0, W, H);
+  maskLabel.textContent = `Removed Mask: ${selectedLabel}`;
+};
+
+// --- Save / Save As improvements ----------------------------------------------
+const saveBtn = document.getElementById('save-btn');
+const saveAsBtn = document.getElementById('saveas-btn');
+
+function defaultFilenameForIndex(idx) {
+  try {
+    const url = imagesData[idx].noisy_url || imagesData[idx].image || '';
+    const parts = url.split('/');
+    let name = parts[parts.length - 1] || `image_${idx}.png`;
+    name = name.split('?')[0];
+    if (!name.toLowerCase().endsWith('.png')) name = name.replace(/\.\w+$/, '') + '.png';
+    return name;
+  } catch {
+    return `image_${idx}.png`;
+  }
+}
+
+// Send image (dataURL) to server. Optionally ask server to replace original path.
+async function postSaveImageToServer(dataURL, filename, replacePath = null) {
+  const fd = new FormData();
+  fd.append('image_data', dataURL);
+  fd.append('filename', filename);
+  if (replacePath) fd.append('replace_path', replacePath);
+
+  const resp = await fetch('/save_cleaned_image', { method: 'POST', body: fd });
+  return resp.json();
+}
+
+saveBtn.onclick = async () => {
+  if (!imagesData || imagesData.length === 0) { alert('No image to save'); return; }
+  try {
+    saveBtn.disabled = true;
+    const dataURL = baseCanvas.toDataURL('image/png');
+    const filename = defaultFilenameForIndex(currentIndex);
+
+    // If the original noisy_url is a session upload (contains "/static/uploads/session_"),
+    // build a replace_path relative to static folder so server can overwrite it.
+    let replacePath = null;
+    const noisy = imagesData[currentIndex].noisy_url || imagesData[currentIndex].image || '';
+    // Expecting something like "/static/uploads/session_xxx/images/NAME"
+    if (noisy.includes('/static/')) {
+      replacePath = noisy.split('/static/')[1].split('?')[0]; // remove query strin
+      }
+
+    const res = await postSaveImageToServer(dataURL, filename, replacePath);
+    console.log("Saving image to:", replacePath);
+
+    if (res && res.success) {
+      // Update in-memory dataset so navigation shows saved image immediately.
+      if (res.saved_path) {
+        // saved_path is returned by server as "uploads/..." or "/static/cleaned/..."
+        // normalize to absolute URL for browser
+        imagesData[currentIndex].noisy_url = (res.saved_url || ('/static/' + res.saved_path));
+      } else if (replacePath) {
+        imagesData[currentIndex].noisy_url = '/static/' + replacePath;
+      } else {
+        imagesData[currentIndex].noisy_url = '/static/cleaned/' + filename;
+      }
+      alert('Saved: ' + (res.filename || filename));
+    } else {
+      alert('Save failed: ' + (res && res.error ? res.error : 'unknown'));
+    }
+  } catch (err) {
+    alert('Save error: ' + err.message);
+  } finally {
+    saveBtn.disabled = false;
+  }
+};
+
+// Save As -> prompt OS save dialog by creating a Blob and anchor (download)
+saveAsBtn.onclick = async () => {
+  const zipName = prompt("Enter ZIP name:", "cleaned_images");
+  if (!zipName) return;
+
+  try {
+    const res = await fetch("/saveas_cleaned_zip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ zip_name: zipName })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const link = document.createElement("a");
+      link.href = data.download_url;
+      link.download = zipName.endsWith(".zip") ? zipName : `${zipName}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert("Save As failed: " + (data.error || "unknown error"));
+    }
+  } catch (err) {
+    alert("Save As error: " + err.message);
+  }
+};
+
+undoBtn.onclick = () => {
+  const ctx = baseCanvas.getContext('2d');
+  if (undoStack.length === 0) return;
+  redoStack.push(ctx.getImageData(0, 0, W, H));
+  ctx.putImageData(undoStack.pop(), 0, 0);
+};
+
+redoBtn.onclick = () => {
+  const ctx = baseCanvas.getContext('2d');
+  if (redoStack.length === 0) return;
+  undoStack.push(ctx.getImageData(0, 0, W, H));
+  ctx.putImageData(redoStack.pop(), 0, 0);
+};
+
 </script>
 
 </body>
