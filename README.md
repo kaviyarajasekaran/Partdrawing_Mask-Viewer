@@ -6,16 +6,19 @@ Built with **HTML, CSS, JavaScript, and Flask (Python)** for quick image upload,
 🔹 Upload and View
 - Upload two ZIP files — one containing **noisy images**, another containing **mask files**.  
 - The app automatically pairs corresponding images and loads them into an interactive viewer page.
+  
 🔹 Viewer Interface
 - Opens the selected image in a **clean, full-page viewer**.
 - Displays the image at the center with smooth zoom and pan support.
 - **Previous** / **Next** buttons for navigating through multiple image-mask pairs.
 - **Back to Upload** button to return to the upload screen.
+  
 🔹 Editing Tools
 - **Undo / Redo:** Easily reverse or reapply your last action.  
 - **Erase Mode:** Toggle erasing for removing unwanted mask areas.  
 - **Remove Mask:** Quickly clear the current mask overlay.  
 - **Save / Save As:** Save the edited mask to its original or a new file.
+  
 🔹 Zoom Controls
 - Zoom in/out using buttons or your mouse wheel.  
 - Current zoom percentage is shown on the side.  
