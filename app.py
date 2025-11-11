@@ -5,7 +5,7 @@ import base64
 import numpy as np
 from flask import Flask, render_template, request, jsonify, send_file, url_for
 from PIL import Image
-import glob
+import datetime
 
 # === Setup ===
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +15,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CLEANED_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app.static_folder = 'static'
 
 def normalize_masks_array(arr):
     arr = np.asarray(arr)
@@ -29,19 +28,18 @@ def normalize_masks_array(arr):
     return arr
 
 # === ROUTES ===
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
 @app.route("/viewer")
+def open_viewer():
+    return render_template("mask-viewer.html")
+
+# 🏠 Default route now loads mask viewer
+@app.route("/")
 def viewer():
     return render_template("mask-viewer.html")
 
-@app.route("/clean")
-def clean():
-    return render_template("clean.html")
+# (We removed the old /viewer and /clean routes)
 
+# === UPLOAD HANDLING (same as before) ===
 @app.route("/upload", methods=["POST"])
 def upload():
     try:
@@ -141,127 +139,113 @@ def upload():
         return jsonify({"pairs": pairs})
 
     except Exception as e:
-        # Always return JSON on any crash
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
-# === UPLOAD FOR ERASER PAGE ===
-@app.route("/upload_clean", methods=["POST"])
-def upload_clean():
-    try:
-        if "image_zip" not in request.files:
-            return jsonify({"error": "Please upload an image or ZIP file."}), 400
 
-        file = request.files["image_zip"]
-        uid = uuid.uuid4().hex
-        folder = os.path.join(UPLOAD_DIR, f"clean_{uid}")
-        os.makedirs(folder, exist_ok=True)
+# === REUSE EXISTING SAVE/DOWNLOAD ROUTES ===
 
-        zip_path = os.path.join(folder, file.filename)
-        file.save(zip_path)
-
-        image_urls = []
-
-        # Handle ZIP or single file
-        if zip_path.lower().endswith(".zip"):
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(folder)
-            for root, _, files in os.walk(folder):
-                for f in files:
-                    if f.lower().endswith((".png", ".jpg", ".jpeg")):
-                        rel = os.path.relpath(os.path.join(root, f), UPLOAD_DIR)
-                        image_urls.append(url_for('static', filename=f"uploads/{rel.replace(os.sep, '/')}"))
-        else:
-            rel = os.path.relpath(zip_path, UPLOAD_DIR)
-            image_urls.append(url_for('static', filename=f"uploads/{rel.replace(os.sep, '/')}"))
-
-        if not image_urls:
-            return jsonify({"error": "No images found in upload."}), 400
-
-        return jsonify({"images": image_urls})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# === SAVE SINGLE CLEANED IMAGE ===
 @app.route('/save_cleaned_image', methods=['POST'])
 def save_cleaned_image():
     try:
-        image_data = request.form.get('image_data')
-        filename = request.form.get('filename')
-        replace_path = request.form.get('replace_path')  # optional (e.g. "uploads/session_xxx/images/foo.png")
+        data = request.get_json()
+        img_data = data.get("image")
+        name = data.get("name", f"cleaned_{uuid.uuid4().hex}.png")
 
-        if not image_data or not filename:
-            return jsonify({"error": "Missing image_data or filename"}), 400
+        if not img_data:
+            return jsonify({"error": "No image data received"}), 400
 
-        # image_data is expected as data URL like "data:image/png;base64,...."
-        if ',' in image_data:
-            image_data = image_data.split(',', 1)[1]
-        img_bytes = base64.b64decode(image_data)
+        # Decode base64
+        header, encoded = img_data.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
 
-        if replace_path:
-            rp = replace_path.replace('\\', '/')
-            if not (rp.startswith('uploads/') or rp.startswith('cleaned/')):
-                return jsonify({"error": "replace_path must be under uploads/ or cleaned/"}), 400
-            target_path = os.path.join(BASE_DIR, 'static', rp)
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            with open(target_path, 'wb') as f:
-                f.write(img_bytes)
+        # Save image file
+        cleaned_path = os.path.join(CLEANED_DIR, name)
+        with open(cleaned_path, "wb") as f:
+            f.write(image_bytes)
 
-            saved_rel = rp  # path relative to static
-            saved_url = url_for('static', filename=saved_rel)
-            return jsonify({"success": True, "filename": os.path.basename(target_path), "saved_path": saved_rel, "saved_url": saved_url})
-
-        # fallback: save to CLEANED_DIR
-        file_path = os.path.join(CLEANED_DIR, filename)
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'wb') as f:
-            f.write(img_bytes)
-
-        saved_rel = os.path.relpath(file_path, BASE_DIR).replace('\\', '/')
-        saved_url = url_for('static', filename=os.path.relpath(file_path, os.path.join(BASE_DIR, 'static')).replace('\\','/'))
-        return jsonify({"success": True, "filename": filename, "saved_path": saved_rel, "saved_url": saved_url})
+        return jsonify({"message": "Image saved successfully", "path": f"/static/cleaned/{name}"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Failed to save image: {str(e)}"}), 500
 
-# === DOWNLOAD ALL CLEANED IMAGES AS ZIP ===
-@app.route('/download_all_cleaned')
+
+@app.route('/download_all_cleaned', methods=['GET'])
 def download_all_cleaned():
-    zip_filename = "cleaned_images.zip"
-    zip_path = os.path.join(CLEANED_DIR, zip_filename)
+    try:
+        zip_filename = f"cleaned_images_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        zip_path = os.path.join(BASE_DIR, zip_filename)
 
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        for root, _, files in os.walk(CLEANED_DIR):
-            for f in files:
-                if f.endswith(('.png', '.jpg', '.jpeg')):
-                    zipf.write(os.path.join(root, f), f)
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(CLEANED_DIR):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, CLEANED_DIR)
+                    zipf.write(file_path, arcname)
 
-    return send_file(zip_path, as_attachment=True)
+        return send_file(zip_path, as_attachment=True)
+    except Exception as e:
+        return jsonify({"error": f"Failed to create zip: {str(e)}"}), 500
 
-# === SAVE AS ZIP (for mask viewer) ===
 @app.route("/saveas_cleaned_zip", methods=["POST"])
 def saveas_cleaned_zip():
     try:
-        data = request.get_json()
-        zip_name = data.get("zip_name", "cleaned_images").strip()
-        if not zip_name.lower().endswith(".zip"):
-            zip_name += ".zip"
-
+        # Create a unique zip filename
+        zip_name = f"cleaned_images_{uuid.uuid4().hex[:8]}.zip"
         zip_path = os.path.join(CLEANED_DIR, zip_name)
-        os.makedirs(os.path.dirname(zip_path), exist_ok=True)
 
+        # Ensure cleaned directory exists
+        os.makedirs(CLEANED_DIR, exist_ok=True)
+
+        # Collect all cleaned images
+        images = [f for f in os.listdir(CLEANED_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
+
+        if not images:
+            return jsonify({"error": "No cleaned images found to zip."}), 400
+
+        # Create zip file
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(CLEANED_DIR):
-                for f in files:
-                    if f.lower().endswith((".png", ".jpg", ".jpeg")):
-                        abs_path = os.path.join(root, f)
-                        arcname = os.path.relpath(abs_path, CLEANED_DIR)
-                        zipf.write(abs_path, arcname)
+            for img in images:
+                img_path = os.path.join(CLEANED_DIR, img)
+                zipf.write(img_path, arcname=img)
 
-        return jsonify({"success": True, "download_url": url_for("static", filename=f"cleaned/{zip_name}")})
+        # Return path for frontend download
+        download_url = url_for('static', filename=f'cleaned/{zip_name}')
+        return jsonify({
+            "message": "Cleaned images zipped successfully",
+            "zip_url": download_url
+        })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Failed to create ZIP: {str(e)}"}), 500
+
+@app.route("/save", methods=["POST"])
+def save_mask():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        # Example: retrieve base64 image data sent from frontend
+        image_data = data.get("image")
+        filename = data.get("filename", "saved_mask.png")
+
+        if not image_data:
+            return jsonify({"status": "error", "message": "Missing 'image' field"}), 400
+
+        # Decode base64 -> image
+        image_bytes = base64.b64decode(image_data.split(",")[1])
+        save_path = os.path.join(CLEANED_DIR, filename)
+        with open(save_path, "wb") as f:
+            f.write(image_bytes)
+
+        return jsonify({
+            "status": "success",
+            "message": f"File saved successfully as {filename}",
+            "file_url": url_for("static", filename=f"cleaned/{filename}")
+        })
+
+    except Exception as e:
+        print("Save error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

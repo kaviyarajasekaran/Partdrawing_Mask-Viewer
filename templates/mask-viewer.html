@@ -78,7 +78,7 @@
 
     h2 {
       font-size: 26px;
-      color: #0a3d62;
+      color: #e6e8e9;
       margin-bottom: 10px;
     }
 
@@ -226,7 +226,7 @@
 /* floating Tools: vertical pills with icon on top, label below */
 .floating-tools {
   position: fixed;
-  top: 45%;
+  top: 65%;
   right: 24px;
   display: flex;
   flex-direction: column;
@@ -234,6 +234,12 @@
   z-index: 1000;
   transform: translateY(-50%);
 }
+
+.tool-btn.active {
+  background-color: #d9534f;
+  color: #fff;
+}
+
 
 .tool-btn {
   width: 64px;
@@ -274,6 +280,124 @@
   color: #fff;
   transform: scale(1.05);
 }
+#tools {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.zoom-controls {
+  position: fixed;
+  top: 45%;
+  left: 24px;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+}
+.zoom-controls button {
+  border: none;
+  background: #0a3d62;
+  color: #fff;
+  font-size: 18px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.zoom-controls button:hover {
+  background: #164d7a;
+  transform: scale(1.05);
+}
+#zoomLevel {
+  font-weight: 700;
+  color: #0a3d62;
+  font-size: 14px;
+}
+.back-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: #444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: bold;
+  z-index: 1000;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.back-btn:hover {
+  background-color: #222;
+  cursor: pointer;
+}
+/* Navigation buttons (Next / Previous) */
+/* === Viewer Page Layout === */
+body.viewer-active {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #0b3d6b, #6e8ea5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hide the top header when viewing image */
+body.viewer-active header,
+body.viewer-active .logo,
+body.viewer-active h1 {
+  display: none !important;
+}
+
+/* Center image and controls vertically */
+/* Next/Previous buttons */
+#navButtons {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 10px;
+}
+
+#navButtons button {
+  background-color: #0b3d6b;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+#navButtons button:hover {
+  background-color: #155a9c;
+}
+
+/* Fixed back button at bottom-left corner */
+.back-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: #0b3d6b;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
   </style>
 </head>
@@ -283,7 +407,7 @@
     <h1>Partdrawing Mask Viewer</h1>
   </header>
 
-  <div class="container">
+  <div class="container" id="uploadSection">
     <h2>Upload ZIP Files</h2>
     <p>Upload one ZIP of noisy images and one ZIP of corresponding mask (.npy) files.</p>
 
@@ -305,6 +429,7 @@
 
   <div id="viewer">
     <h2>Image Preview</h2>
+    <button id="backBtn" class="btn back-btn">⬅ Back to Upload</button>
     <div class="viewer">
       <div class="canvas-wrapper">
         <canvas id="baseCanvas"></canvas>
@@ -312,8 +437,10 @@
       </div>
     </div>
     <p>Active Mask: <span id="maskLabel">None</span></p>
-    <button id="prevBtn" style="display:none;">Previous Image</button>
-    <button id="nextBtn" style="display:none;">Next Image</button>
+    <div id="navButtons" class="nav-btns" style="display:none;">
+      <button id="prevBtn"> Previous</button>
+      <button id="nextBtn">Next </button>
+    </div>
   </div>
   <div id="editTools" class="floating-tools" style="display:none;">
   <button id="undo-btn" class="tool-btn" title="Undo Last Action">
@@ -340,9 +467,36 @@
     <div style="font-size:18px;line-height:1">↪</div>
     <div style="font-size:13px;margin-top:6px">Redo</div>
   </button>
+  <button id="eraserBtn" class="tool-btn">🧽 Erase Mode</button>
+  <label id="eraserSizeLabel" for="eraserSize" style="color:white;margin-left:10px;">Eraser_Size:</label>
+  <input type="range" id="eraserSize" min="5" max="60" value="20" style="width:120px;">
+</div>
+<div id="zoomControls" class="zoom-controls" style="display:none;">
+  <button id="zoomInBtn" title="Zoom In">＋</button>
+  <span id="zoomLevel">100%</span>
+  <button id="zoomOutBtn" title="Zoom Out">－</button>
 </div>
 
   <script>
+    document.addEventListener("DOMContentLoaded", () => {
+  const storedPairs = localStorage.getItem("uploadedPairs");
+  if (storedPairs) {
+    imagesData = JSON.parse(storedPairs);
+    currentIndex = 0;
+    document.getElementById("uploadSection").style.display = "none";
+    document.getElementById("viewer").style.display = "block";
+    document.getElementById("editTools").style.display = "flex";
+    document.getElementById("zoomControls").style.display = "flex";
+    showImage(currentIndex);
+    const multiple = imagesData.length > 1;
+    nextBtn.style.display = multiple ? "inline-block" : "none";
+    prevBtn.style.display = multiple ? "inline-block" : "none";
+    viewer.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById("editTools").style.display = "flex";
+    document.getElementById("navButtons").style.display = "flex";
+  }
+});
+
   const form = document.getElementById('uploadForm');
   const errorBox = document.getElementById('error');
   const viewer = document.getElementById('viewer');
@@ -374,63 +528,56 @@
   }
 
   // === Handle Form Submit ===
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    clearError();
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  clearError();
 
-    const noisyZip = document.getElementById('noisy_zip').files[0];
-    const maskZip = document.getElementById('mask_zip').files[0];
+  const noisyZip = document.getElementById('noisy_zip').files[0];
+  const maskZip = document.getElementById('mask_zip').files[0];
 
-    if (!noisyZip || !maskZip) {
-      showError("Please upload both ZIP files.");
-      return;
-    }
+  if (!noisyZip || !maskZip) {
+    showError("Please upload both ZIP files.");
+    return;
+  }
 
-    const fd = new FormData();
-    fd.append("noisy_zip", noisyZip);
-    fd.append("mask_zip", maskZip);
+  const fd = new FormData();
+  fd.append("noisy_zip", noisyZip);
+  fd.append("mask_zip", maskZip);
 
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = "Processing...";
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = "Processing...";
+
+  try {
+    const res = await fetch("/upload", { method: "POST", body: fd });
+    const text = await res.text();
+    let data;
 
     try {
-      const res = await fetch("/upload", { method: "POST", body: fd });
-      const text = await res.text(); // 👈 read raw text first
-
-      // Safely try to parse JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error("Server returned invalid JSON:\n" + text.slice(0, 150));
-      }
-
-      // Check for backend error
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Upload failed on server.");
-      }
-
-      // Handle image/mask pairs
-      imagesData = Array.isArray(data) ? data : data.pairs || [];
-      if (imagesData.length === 0) {
-        throw new Error("No valid image/mask pairs found.");
-      }
-
-      currentIndex = 0;
-      await showImage(currentIndex);
-      const multiple = imagesData.length > 1;
-      nextBtn.style.display = multiple ? "inline-block" : "none";
-      prevBtn.style.display = multiple ? "inline-block" : "none";
-      viewer.scrollIntoView({ behavior: 'smooth' });
-      document.getElementById("editTools").style.display = "flex";      
-
-    } catch (err) {
-      showError(err.message);
-    } finally {
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = "Upload & Preview";
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Server returned invalid JSON:\n" + text.slice(0, 150));
     }
-  };
+
+    if (!res.ok || data.error) {
+      throw new Error(data.error || "Upload failed on server.");
+    }
+
+    // ✅ Save image/mask pairs for next page
+    const pairs = Array.isArray(data) ? data : data.pairs || [];
+    if (pairs.length === 0) throw new Error("No valid image/mask pairs found.");
+
+    localStorage.setItem("uploadedPairs", JSON.stringify(pairs));
+
+    // ✅ Go to viewer page
+    window.location.href = "/viewer";
+
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = "Upload & Preview";
+  }
+};
 
   // === Next Button ===
 nextBtn.onclick = async () => {
@@ -620,12 +767,8 @@ saveBtn.onclick = async () => {
     saveBtn.disabled = true;
     const dataURL = baseCanvas.toDataURL('image/png');
     const filename = defaultFilenameForIndex(currentIndex);
-
-    // If the original noisy_url is a session upload (contains "/static/uploads/session_"),
-    // build a replace_path relative to static folder so server can overwrite it.
     let replacePath = null;
     const noisy = imagesData[currentIndex].noisy_url || imagesData[currentIndex].image || '';
-    // Expecting something like "/static/uploads/session_xxx/images/NAME"
     if (noisy.includes('/static/')) {
       replacePath = noisy.split('/static/')[1].split('?')[0]; // remove query strin
       }
@@ -634,10 +777,7 @@ saveBtn.onclick = async () => {
     console.log("Saving image to:", replacePath);
 
     if (res && res.success) {
-      // Update in-memory dataset so navigation shows saved image immediately.
       if (res.saved_path) {
-        // saved_path is returned by server as "uploads/..." or "/static/cleaned/..."
-        // normalize to absolute URL for browser
         imagesData[currentIndex].noisy_url = (res.saved_url || ('/static/' + res.saved_path));
       } else if (replacePath) {
         imagesData[currentIndex].noisy_url = '/static/' + replacePath;
@@ -695,8 +835,133 @@ redoBtn.onclick = () => {
   undoStack.push(ctx.getImageData(0, 0, W, H));
   ctx.putImageData(redoStack.pop(), 0, 0);
 };
+// === Eraser Tool ===
+const overlay = document.getElementById('overlayCanvas');
+const ctxOverlay = overlay.getContext('2d');
+const eraserBtn = document.getElementById('eraserBtn');
+const eraserSizeSlider = document.getElementById('eraserSize');
+
+let eraserActive = false;
+let eraserSize = parseInt(eraserSizeSlider.value);
+let isErasing = false;
+
+// === TOGGLE ERASER MODE ===
+eraserBtn.addEventListener('click', () => {
+  eraserActive = !eraserActive;
+  eraserBtn.classList.toggle('active', eraserActive);
+  eraserBtn.textContent = eraserActive ? "🧽 Erase: ON" : "🧽 Erase Mode";
+
+  // When eraser is active → hide mask overlay
+  if (eraserActive) {
+    overlay.style.pointerEvents = "auto";
+    if (typeof selectedLabel !== "undefined") selectedLabel = -1;
+    overlayCtx.clearRect(0, 0, W, H);
+  } else {
+    overlay.style.pointerEvents = "none";
+  }
+});
+
+// === SLIDER CONTROL ===
+eraserSizeSlider.addEventListener('input', e => {
+  eraserSize = parseInt(e.target.value);
+});
+
+// === ERASING BEHAVIOR ===
+overlay.addEventListener('mousedown', e => {
+  if (!eraserActive) return;
+  // Save state before starting erase
+  const ctx = baseCanvas.getContext('2d');
+  undoStack.push(ctx.getImageData(0, 0, W, H));
+  redoStack = [];
+
+  isErasing = true;
+  eraseAt(e.offsetX, e.offsetY);
+});
+
+overlay.addEventListener('mousemove', e => {
+  if (!isErasing || !eraserActive) return;
+  eraseAt(e.offsetX, e.offsetY);
+});
+
+overlay.addEventListener('mouseup', () => isErasing = false);
+overlay.addEventListener('mouseleave', () => isErasing = false);
+
+// === ERASE FUNCTION (paint white on baseCanvas) ===
+function eraseAt(x, y) {
+  const ctx = baseCanvas.getContext('2d');
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(x, y, eraserSize / 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+// === ZOOM FEATURE ===
+const zoomInBtn = document.getElementById('zoomInBtn');
+const zoomOutBtn = document.getElementById('zoomOutBtn');
+const zoomLevelLabel = document.getElementById('zoomLevel');
+
+let zoom = 1;
+const ZOOM_STEP = 0.1;
+const ZOOM_MIN = 0.2;
+const ZOOM_MAX = 5;
+
+// Helper: Apply zoom scaling
+function applyZoom() {
+  const canvases = [baseCanvas, overlayCanvas];
+  canvases.forEach(c => {
+    c.style.transformOrigin = "center center";
+    c.style.transform = `scale(${zoom})`;
+  });
+  zoomLevelLabel.textContent = Math.round(zoom * 100) + "%";
+}
+
+// Zoom in/out via buttons
+zoomInBtn.addEventListener('click', () => {
+  zoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX);
+  applyZoom();
+});
+
+zoomOutBtn.addEventListener('click', () => {
+  zoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN);
+  applyZoom();
+});
+
+// === Mouse wheel zoom ===
+viewer.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.deltaY < 0) {
+    zoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX); // scroll up → zoom in
+  } else {
+    zoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN); // scroll down → zoom out
+  }
+  applyZoom();
+}, { passive: false });
+
+// === BACK TO UPLOAD PAGE ===
+document.getElementById("backBtn").addEventListener("click", () => {
+  document.getElementById("viewer").style.display = "none";
+  document.getElementById("uploadSection").style.display = "block";
+  document.getElementById("editTools").style.display = "none";
+  document.getElementById("zoomControls").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+// === Viewer Mode Controls ===
+function activateViewerMode() {
+  document.body.classList.add("viewer-active");
+}
+
+function deactivateViewerMode() {
+  document.body.classList.remove("viewer-active");
+  window.location.href = "/"; // or "/upload" if you have that route
+}
+// When the viewer page loads, activate viewer mode automatically:
+if (window.location.pathname.includes("/viewer")) {
+  activateViewerMode();
+}
+
 
 </script>
-
 </body>
 </html>
